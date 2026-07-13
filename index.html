@@ -21,6 +21,76 @@
   * { box-sizing: border-box; font-family: 'Plus Jakarta Sans', -apple-system, sans-serif; }
   html, body { width: 100%; max-width: 100%; min-height: 100vh; margin: 0; padding: 0; overflow-x: hidden; background-color: var(--bg); color: var(--texto); }
 
+  /* =========================================
+     CARTEL FLOTANTE (SPONSORS MARQUEE)
+  ========================================= */
+  .sponsors-marquee {
+    width: 100%;
+    overflow: hidden;
+    background-color: var(--card);
+    padding: 12px 0;
+    border-bottom: 1px solid var(--borde);
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+  }
+  .sponsors-marquee.bottom {
+    border-top: 1px solid var(--borde);
+    border-bottom: none;
+    margin-top: 20px;
+  }
+  .sponsors-track {
+    display: inline-flex;
+    align-items: center;
+    gap: 40px;
+    animation: scrollSponsors 20s linear infinite;
+  }
+  .sponsor-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+    color: var(--oro);
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  .sponsor-item img {
+    height: 32px;
+    width: 32px;
+    object-fit: contain;
+    border-radius: 50%;
+    background: #ffffff;
+    padding: 3px;
+  }
+  @keyframes scrollSponsors {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(-50%); }
+  }
+
+  /* =========================================
+     LOADER (CARTEL DE CARGANDO)
+  ========================================= */
+  #loaderPartidos {
+    display: none;
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--oro);
+  }
+  .spinner {
+    border: 4px solid rgba(250, 204, 21, 0.1);
+    border-left-color: var(--oro);
+    border-radius: 50%;
+    width: 45px;
+    height: 45px;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 15px auto;
+  }
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+  
   .pozos-titulo { padding: 20px 16px 4px; font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--oro); font-weight: 700; }
   .pozos-carrusel { display: flex; gap: 12px; overflow-x: auto; padding: 4px 16px 20px; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
   .pozos-carrusel::-webkit-scrollbar { display: none; }
@@ -144,6 +214,10 @@
     </div>
   </div>
 
+  <!-- CARTEL FLOTANTE ARRIBA -->
+  <div class="sponsors-marquee">
+    <div class="sponsors-track" id="marqueeTop"></div>
+  </div>
 
   <div class="pozos-titulo">💰 🏆 PREMIOS ESTIMADOS — DESLIZÁ Y SELECCIONÁ TU TORNEO</div>
   <div class="pozos-carrusel" id="carrusel">Cargando...</div>
@@ -158,6 +232,13 @@
 
     <label>Elegí tu Torneo</label>
     <select id="torneo"><option value="">Seleccionar liga...</option></select>
+
+    <!-- LOADER AGREGADO AQUÍ -->
+    <div id="loaderPartidos">
+      <div class="spinner"></div>
+      <h3 style="margin: 10px 0 5px; font-size: 15px; font-weight: 800;">Cargando partidos...</h3>
+      <p style="color: var(--gris); font-size: 12px; margin: 0;">Conectando con la base de datos de BET NOW</p>
+    </div>
 
     <div id="partidos"></div>
 
@@ -192,6 +273,11 @@
     <div id="posiciones">Cargando...</div>
   </div>
 
+  <!-- CARTEL FLOTANTE ABAJO -->
+  <div class="sponsors-marquee bottom">
+    <div class="sponsors-track" id="marqueeBottom"></div>
+  </div>
+
   <div id="pagoModal" class="modal">
     <div class="modal-content">
       <h4>¡Jugada Recibida!</h4>
@@ -206,45 +292,29 @@
 
 <script>
   // ⚠️⚠️ PASO OBLIGATORIO ANTES DE PUBLICAR ⚠️⚠️
-  // Pegá acá la URL de tu Web App de Apps Script (la que termina en /exec).
-  // La sacás de: Apps Script → Implementar → Administrar implementaciones.
   const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwJqjk_vGUJBS3QeijN8xgw9vWj_nmVWPVh83G1BQz64Amkf8qJED8M0Q6uSynTyIQ/exec";
-
-  // Número de WhatsApp para recibir comprobantes (con código de país, sin +, sin espacios)
   const WHATSAPP_NUMERO = "5493825662396";
-  const ALIAS_PAGO = "betnow"; // <-- cambiá esto por tu alias real
+  const ALIAS_PAGO = "betnow"; 
 
   const formatoARS = (n) => '$' + Math.round(n).toLocaleString('es-AR');
 
   // ============================================================
-  // BLOQUEO: solo se puede jugar desde la app instalada
+  // BLOQUEO INSTALACIÓN
   // ============================================================
-  function estaInstalada() {
-    return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
-  }
-  function esInstagramBrowser() {
-    return /Instagram/i.test(navigator.userAgent);
-  }
-  function esIphone() {
-    return /iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-  }
+  function estaInstalada() { return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true; }
+  function esInstagramBrowser() { return /Instagram/i.test(navigator.userAgent); }
+  function esIphone() { return /iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1); }
 
   if (!estaInstalada()) {
     document.getElementById('gateOverlay').style.display = 'flex';
-    if (esInstagramBrowser()) {
-      document.getElementById('gateInstagram').style.display = 'block';
-    } else if (esIphone()) {
-      document.getElementById('gateiOS').style.display = 'block';
-    } else {
-      document.getElementById('gateNormal').style.display = 'block';
-    }
-    // No se inicializa nada más: sin instalar, no se puede ver ni cargar nada.
+    if (esInstagramBrowser()) { document.getElementById('gateInstagram').style.display = 'block'; }
+    else if (esIphone()) { document.getElementById('gateiOS').style.display = 'block'; }
+    else { document.getElementById('gateNormal').style.display = 'block'; }
   } else {
     inicializarApp();
   }
 
   function inicializarApp() {
-  // Registrar el Service Worker (necesario para que la app sea instalable)
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => navigator.serviceWorker.register('service-worker.js'));
   }
@@ -253,13 +323,14 @@
   const selectTorneo = document.getElementById('torneo');
   const contPartidos = document.getElementById('partidos');
   const btnEnviar = document.getElementById('enviar');
+  const loaderPartidos = document.getElementById('loaderPartidos');
 
   function seleccionarTorneo(nombre) {
     selectTorneo.value = nombre;
     selectTorneo.dispatchEvent(new Event('change'));
     document.querySelector('.form-cont').scrollIntoView({ behavior: 'smooth' });
   }
-  window.seleccionarTorneo = seleccionarTorneo; // necesario: el onclick inline del HTML generado busca esto en window
+  window.seleccionarTorneo = seleccionarTorneo;
 
   function animarNumero(elem, finalVal) {
     let currentVal = 0; const steps = 30; const increment = finalVal / steps;
@@ -270,11 +341,39 @@
     }, 1000 / steps);
   }
 
-  // Carga inicial: torneos (pozo, costo, logo) y posiciones
+  // FUNCIÓN PARA ARMAR EL CARTEL FLOTANTE
+  function armarCartelesFlotantes(torneos) {
+    const sponsors = torneos.filter(t => t.logo && t.logo.trim() !== '');
+    let htmlSponsors = '';
+
+    if (sponsors.length === 0) {
+      // SI NO HAY SPONSORS TODAVÍA: Crea un texto por defecto girando
+      const textoDefault = '<div class="sponsor-item" style="color:var(--gris);"><span>⚽ BET NOW PRODE AMATEUR ⚽</span></div>';
+      htmlSponsors = textoDefault.repeat(8);
+    } else {
+      // SI HAY SPONSORS: Los pone con su logo
+      let itemsSponsors = '';
+      sponsors.forEach(sp => {
+        itemsSponsors += `<div class="sponsor-item"><img src="${sp.logo}" alt="Sponsor"><span>${sp.nombre}</span></div>`;
+      });
+      htmlSponsors = itemsSponsors.repeat(6); // Multiplicado para scroll continuo
+    }
+
+    // Doble render para que la animación no se corte al medio
+    const renderDoble = htmlSponsors + htmlSponsors;
+    document.getElementById('marqueeTop').innerHTML = renderDoble;
+    document.getElementById('marqueeBottom').innerHTML = renderDoble;
+  }
+
+  // Carga inicial
   fetch(SCRIPT_URL + '?format=json')
     .then(r => r.json())
     .then(data => {
       const torneos = data.torneos || [];
+      
+      // Armamos los carteles flotantes con los datos que llegaron
+      armarCartelesFlotantes(torneos);
+
       selectTorneo.innerHTML = '<option value="">Seleccionar liga...</option>' +
         torneos.map(t => `<option value="${t.nombre}">${t.nombre} (Inscripción: ${formatoARS(t.costo)})</option>`).join('');
 
@@ -307,17 +406,30 @@
         }).join('');
       }
     })
-    .catch(() => { carrusel.innerHTML = '<p style="color:#f87171;padding:16px;">No se pudo conectar con el backend. Revisá SCRIPT_URL en index.html.</p>'; });
+    .catch(() => { carrusel.innerHTML = '<p style="color:#f87171;padding:16px;">No se pudo conectar con el backend.</p>'; });
 
   selectTorneo.addEventListener('change', function(ev) {
     const torneo = ev.target.value;
-    contPartidos.innerHTML = ''; btnEnviar.style.display = 'none';
+    
+    // Escondemos los elementos mientras carga
+    contPartidos.innerHTML = ''; 
+    btnEnviar.style.display = 'none';
     document.getElementById('desempate-cont').style.display = 'none';
-    if (!torneo) return;
+    
+    if (!torneo) {
+      loaderPartidos.style.display = 'none';
+      return;
+    }
+
+    // MOSTRAR LOADER
+    loaderPartidos.style.display = 'block';
 
     fetch(SCRIPT_URL + '?format=partidos-torneo&torneo=' + encodeURIComponent(torneo))
       .then(r => r.json())
       .then(partidos => {
+        // OCULTAR LOADER AL TERMINAR
+        loaderPartidos.style.display = 'none';
+
         if (partidos.length === 0) {
           contPartidos.innerHTML = '<p style="text-align:center; color:var(--gris); padding:20px 0;">No hay partidos activos para esta liga.</p>';
           return;
@@ -336,6 +448,11 @@
         });
         document.getElementById('desempate-cont').style.display = 'block';
         btnEnviar.style.display = 'block';
+      })
+      .catch(() => {
+         // Ocultar loader si hay error también
+         loaderPartidos.style.display = 'none';
+         contPartidos.innerHTML = '<p style="text-align:center; color:#f87171; padding:20px 0;">Error al cargar los partidos. Intentá de nuevo.</p>';
       });
   });
 
@@ -391,8 +508,6 @@
       });
   });
 
-  // Efecto "foco premium": la tarjeta que queda centrada al deslizar se agranda
-  // y se ve nítida; las demás quedan más chicas y apagadas.
   function activarFocoCarrusel() {
     const cont = document.getElementById('carrusel');
     let ticking = false;
@@ -412,7 +527,7 @@
     actualizarFoco();
   }
 
-  } // fin inicializarApp()
+  } 
 </script>
 </body>
 </html>
