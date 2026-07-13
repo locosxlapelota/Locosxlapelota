@@ -1,3 +1,4 @@
+// versión 2
 // Incrementá este número (ej: v2, v3, v4) cada vez que subas un cambio grande a GitHub 
 // para forzar a los teléfonos a descargar la nueva versión automáticamente.
 const CACHE_NAME = 'betnow-shell-v2';
