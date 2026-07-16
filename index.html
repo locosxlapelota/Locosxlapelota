@@ -228,7 +228,7 @@
   <div class="posiciones-seccion" id="seccion-resultados" style="display:none; padding-bottom: 10px; margin-top: 30px;">
     <h3>⚽ RESULTADOS OFICIALES</h3>
     <p style="text-align:center; font-size:12px; color:var(--gris); margin-top:-10px; margin-bottom:20px;">
-      Verificá los marcadores reales.<br><span style="color:var(--oro);">Exacto = 6 Pts | Tendencia = 3 Pt</span>
+      Verificá los marcadores reales.<br><span style="color:var(--oro);">Exacto = 3 Pts | Tendencia = 1 Pt</span>
     </p>
     <div id="resultados-oficiales"></div>
   </div>
@@ -376,19 +376,19 @@
       }, 1000 / steps);
     }
 
-    function armarCartelesFlotantes(torneos) {
-      const sponsors = torneos.filter(t => t.logo_sponsor && t.logo_sponsor.trim() !== '');
+    function armarCartelesFlotantes(sponsors) {
       let htmlSponsors = '';
-      if (sponsors.length === 0) {
+      if (!sponsors || sponsors.length === 0) {
         const textoDefault = '<div class="sponsor-item" style="color:var(--gris);"><span>⚽ LOCOS X LA PELOTA ⚽</span></div>';
         htmlSponsors = textoDefault.repeat(8);
       } else {
         let itemsSponsors = '';
         sponsors.forEach(sp => {
+          const logoHtml = sp.logo ? `<img src="${sp.logo}" alt="Sponsor">` : '';
           itemsSponsors += `
             <div class="sponsor-item">
-              <img src="${sp.logo_sponsor}" alt="Sponsor">
-              <span>SPONSOR OFICIAL DE: ${sp.nombre_sponsor}</span>
+              ${logoHtml}
+              <span>SPONSOR OFICIAL: ${sp.nombre}</span>
             </div>`;
         });
         htmlSponsors = itemsSponsors.repeat(4); 
@@ -402,7 +402,7 @@
       .then(r => r.json())
       .then(data => {
         const torneos = data.torneos || [];
-        armarCartelesFlotantes(torneos);
+        armarCartelesFlotantes(data.sponsors || []);
         selectTorneo.innerHTML = '<option value="">Seleccionar liga...</option>' +
           torneos.map(t => `<option value="${t.nombre}">${t.nombre} (Matrícula: ${formatoARS(t.costo)})</option>`).join('');
         carrusel.innerHTML = torneos.map(t => {
@@ -422,52 +422,49 @@
         
         const resDiv = document.getElementById('resultados-oficiales');
         const secRes = document.getElementById('seccion-resultados');
-        const partidosAll = data.partidos || [];
-        const finalizados = partidosAll.filter(p => p.estado.includes('FINALIZADO') || p.estado.includes('TERMINADO'));
-        
-        // --- REEMPLAZAR EL BLOQUE IF (finalizados.length > 0) EN EL HTML ---
-        if (finalizados.length > 0) {
-          secRes.style.display = 'block'; 
-          const torneosFix = [...new Set(finalizados.map(p => p.torneo))];
-          resDiv.innerHTML = torneosFix.map(torneo => {
-            const filas = finalizados.filter(p => p.torneo === torneo)
-              .map(p => {
-                 // 1. Armamos los logos
-                 const logoL = p.logoLocal ? `<img src="${p.logoLocal}" alt="${p.local}">` : `<div class="sin-logo">🛡️</div>`;
-                 const logoV = p.logoVisitante ? `<img src="${p.logoVisitante}" alt="${p.visitante}">` : `<div class="sin-logo">🛡️</div>`;
-                 
-                 // 2. Controlamos los goles (si está vacío, mostramos un guión)
-                 const gL = (p.golesL !== '' && p.golesL !== undefined) ? p.golesL : '-';
-                 const gV = (p.golesV !== '' && p.golesV !== undefined) ? p.golesV : '-';
+        const transparencia = data.transparencia || [];
 
-                 // 3. Renderizamos la tarjeta idéntica a la de carga
-                 return `
-                 <div class="partido-card completado" style="margin-bottom: 12px; cursor: default;">
-                    <div class="equipo">
-                      ${logoL}
-                      <span>${p.local}</span>
-                    </div>
-                    <div class="marcador">
-                      <div style="width: 44px; height: 44px; display:flex; align-items:center; justify-content:center; font-size: 20px; font-weight: 800; border-radius: 10px; background: #1b1e28; border: 1px solid var(--oro); color: var(--oro);">${gL}</div>
-                      <span class="vs" style="margin: 0 4px;">VS</span>
-                      <div style="width: 44px; height: 44px; display:flex; align-items:center; justify-content:center; font-size: 20px; font-weight: 800; border-radius: 10px; background: #1b1e28; border: 1px solid var(--oro); color: var(--oro);">${gV}</div>
-                    </div>
-                    <div class="equipo">
-                      ${logoV}
-                      <span>${p.visitante}</span>
-                    </div>
-                 </div>
-                 `;
+        if (transparencia.length > 0) {
+          secRes.style.display = 'block';
+          const torneosFix = [...new Set(transparencia.map(p => p.torneo))];
+          resDiv.innerHTML = torneosFix.map(torneo => {
+            const partidosDelTorneo = transparencia.filter(p => p.torneo === torneo).map(p => {
+              const filasJugadas = (p.jugadas || []).map(j => {
+                const colorPuntos = j.puntos === 3 ? '#facc15' : (j.puntos === 1 ? '#22c55e' : '#94a3b8');
+                return `<tr>
+                          <td style="text-align:left; font-size:12px;">${j.nombre}</td>
+                          <td style="text-align:center; font-size:12px;">${j.golLPred} - ${j.golVPred}</td>
+                          <td style="text-align:center; font-size:12px; font-weight:800; color:${colorPuntos};">${j.puntos} pts</td>
+                        </tr>`;
               }).join('');
-            
-            // Contenedor transparente para que resalten las tarjetas
-            return `<div class="tabla-torneo-card" style="background: transparent; border: none; padding: 0; box-shadow: none;">
-                      <h4 style="color: var(--oro); border-bottom: 1px dashed rgba(250,204,21,0.3); padding-bottom: 8px; margin-bottom: 15px;">✅ ${torneo}</h4>
-                      ${filas}
-                    </div>`;
+              const detalleJugadas = filasJugadas
+                ? `<details style="margin-top:6px;">
+                     <summary style="font-size:11px; color:var(--gris); cursor:pointer;">Ver cómo jugó cada participante (${(p.jugadas || []).length})</summary>
+                     <table style="border:none; margin-top:6px;">
+                       <tr><th style="text-align:left; font-size:10px;">Analista</th><th style="font-size:10px;">Predijo</th><th style="font-size:10px;">Puntos</th></tr>
+                       ${filasJugadas}
+                     </table>
+                   </details>`
+                : `<p style="font-size:11px; color:var(--gris); margin:6px 0 0;">Todavía nadie pagó un pronóstico para este partido.</p>`;
+
+              return `<div style="margin-bottom:16px; padding-bottom:12px; border-bottom:1px solid rgba(255,255,255,0.05);">
+                        <table style="border:none;">
+                          <tr>
+                            <td style="text-align:right; width:40%; font-weight:700;">${p.local}</td>
+                            <td style="text-align:center; width:20%;">
+                              <div style="background:var(--oro); color:#000; font-weight:800; border-radius:6px; padding:4px 0; font-size:14px; box-shadow: 0 0 10px rgba(250,204,21,0.2);">
+                                ${p.golLReal} - ${p.golVReal}
+                              </div>
+                            </td>
+                            <td style="text-align:left; width:40%; font-weight:700;">${p.visitante}</td>
+                          </tr>
+                        </table>
+                        ${detalleJugadas}
+                      </div>`;
+            }).join('');
+            return `<div class="tabla-torneo-card" style="margin-bottom:12px;"><h4>✅ ${torneo}</h4>${partidosDelTorneo}</div>`;
           }).join('');
         }
-        // ------------------------------------------------------------------
 
         const posiciones = data.posiciones || [];
         const torneosUnicos = [...new Set(posiciones.map(p => p.torneo))];
