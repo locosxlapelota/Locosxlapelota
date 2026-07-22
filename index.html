@@ -31,6 +31,15 @@
   @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
   
   .pozos-titulo { padding: 20px 16px 4px; font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--oro); font-weight: 700; }
+  .billetera-badge {
+    display: flex; align-items: center; gap: 6px; width: fit-content; margin: 8px auto 0;
+    background: rgba(34,197,94,0.12); border: 1px solid #22c55e; color: #22c55e;
+    font-weight: 800; font-size: 13px; padding: 8px 16px; border-radius: 999px; cursor: pointer;
+  }
+  #billeteraDetalleConfirmados div, #billeteraDetallePendientes div {
+    display: flex; justify-content: space-between; font-size: 12px; padding: 6px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+  }
   .pozos-carrusel { display: flex; gap: 12px; overflow-x: auto; padding: 4px 16px 20px; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
   .pozos-carrusel::-webkit-scrollbar { display: none; }
   .pozo-slide { scroll-snap-align: center; flex: 0 0 85%; cursor: pointer; background: linear-gradient(135deg, #181b26 0%, #10121a 100%); border: 1px solid var(--borde); border-radius: 18px; padding: 20px 16px; box-shadow: 0 8px 25px rgba(0, 0, 0, 0.5); transition: transform 0.2s ease; }
@@ -170,6 +179,30 @@
 
   <div class="sponsors-marquee">
     <div class="sponsors-track" id="marqueeTop"></div>
+  </div>
+
+  <!-- BILLETERA: muestra en verde lo que el usuario tiene pagado y confirmado -->
+  <div id="billeteraBadge" class="billetera-badge" onclick="abrirBilletera()">
+    💰 <span id="billeteraMonto">Mi cuenta</span>
+  </div>
+
+  <div id="billeteraModal" class="modal">
+    <div class="modal-content" style="text-align:left;">
+      <h4 style="color:#22c55e;">💰 MI CUENTA</h4>
+      <div id="billeteraSinEmail">
+        <p style="font-size:13px; color:#e5e9f0;">Ingresá el mismo email con el que jugás para ver cuánto tenés pagado.</p>
+        <input type="email" id="billeteraEmailInput" placeholder="ejemplo@correo.com" style="margin-bottom:10px;">
+        <button onclick="consultarBilletera()" class="btn-whatsapp" style="background:#22c55e; color:#fff;">Consultar</button>
+      </div>
+      <div id="billeteraConDatos" style="display:none;">
+        <p style="font-size:12px; color:var(--gris); margin-bottom:4px;">Total confirmado (pagos verificados):</p>
+        <p style="font-size:32px; font-weight:800; color:#22c55e; margin:0 0 14px;" id="billeteraTotalGrande">$0</p>
+        <div id="billeteraDetalleConfirmados"></div>
+        <div id="billeteraDetallePendientes" style="margin-top:10px;"></div>
+        <button onclick="cambiarEmailBilletera()" style="background:none; border:none; color:var(--gris); font-size:12px; text-decoration:underline; margin-top:12px; cursor:pointer;">Usar otro email</button>
+      </div>
+      <button onclick="document.getElementById('billeteraModal').style.display='none'" class="btn-whatsapp" style="margin-top:14px;">Cerrar</button>
+    </div>
   </div>
 
   <div class="pozos-titulo">💰 🏆 INCENTIVOS ESTIMADOS — DESLIZÁ Y SELECCIONÁ TU TORNEO</div>
@@ -332,6 +365,64 @@
     if(localStorage.getItem('locosx_nombre')) inputNombre.value = localStorage.getItem('locosx_nombre');
     if(localStorage.getItem('locosx_email')) inputEmail.value = localStorage.getItem('locosx_email');
 
+    // Billetera: si ya sabemos el email (porque jugó antes), consulta sola sin pedir nada.
+    if (localStorage.getItem('locosx_email')) {
+      cargarBilletera(localStorage.getItem('locosx_email'));
+    }
+
+    function abrirBilletera() {
+      document.getElementById('billeteraModal').style.display = 'flex';
+      const emailGuardado = localStorage.getItem('locosx_email');
+      if (emailGuardado && document.getElementById('billeteraConDatos').style.display === 'block') {
+        // ya se ve el detalle, no hace falta hacer nada más
+      } else if (emailGuardado) {
+        document.getElementById('billeteraEmailInput').value = emailGuardado;
+      }
+    }
+    window.abrirBilletera = abrirBilletera;
+
+    function cambiarEmailBilletera() {
+      document.getElementById('billeteraSinEmail').style.display = 'block';
+      document.getElementById('billeteraConDatos').style.display = 'none';
+    }
+    window.cambiarEmailBilletera = cambiarEmailBilletera;
+
+    function consultarBilletera() {
+      const email = document.getElementById('billeteraEmailInput').value.trim();
+      if (!email) return;
+      localStorage.setItem('locosx_email', email);
+      cargarBilletera(email);
+    }
+    window.consultarBilletera = consultarBilletera;
+
+    function cargarBilletera(email) {
+      fetch(SCRIPT_URL + '?format=mi-cuenta&email=' + encodeURIComponent(email))
+        .then(r => r.json())
+        .then(datos => {
+          const montoTxt = '$' + Math.round(datos.total || 0).toLocaleString('es-AR');
+          document.getElementById('billeteraMonto').textContent = montoTxt;
+
+          document.getElementById('billeteraSinEmail').style.display = 'none';
+          document.getElementById('billeteraConDatos').style.display = 'block';
+          document.getElementById('billeteraTotalGrande').textContent = montoTxt;
+
+          const confDiv = document.getElementById('billeteraDetalleConfirmados');
+          confDiv.innerHTML = (datos.confirmados && datos.confirmados.length > 0)
+            ? '<p style="font-size:11px; color:var(--gris); margin:0 0 4px;">✅ Confirmados:</p>' +
+              datos.confirmados.map(c => `<div><span>${c.torneo}</span><span style="color:#22c55e; font-weight:700;">$${Math.round(c.monto).toLocaleString('es-AR')}</span></div>`).join('')
+            : '';
+
+          const pendDiv = document.getElementById('billeteraDetallePendientes');
+          pendDiv.innerHTML = (datos.pendientes && datos.pendientes.length > 0)
+            ? '<p style="font-size:11px; color:var(--gris); margin:8px 0 4px;">⏳ Pendientes de verificar:</p>' +
+              datos.pendientes.map(p => `<div><span>${p.torneo}</span><span style="color:var(--gris);">$${Math.round(p.monto).toLocaleString('es-AR')}</span></div>`).join('')
+            : '';
+        })
+        .catch(() => {
+          document.getElementById('billeteraMonto').textContent = 'Mi cuenta';
+        });
+    }
+
     if(btnCompartir) {
       btnCompartir.addEventListener('click', () => {
         if (navigator.share) {
@@ -352,6 +443,14 @@
     btnComoJugar.addEventListener('click', () => {
       modalComoJugar.style.display = 'flex';
     });
+
+    // La primera vez que alguien entra, se muestra sola (mucha gente no
+    // encuentra o no toca el botón "¿Cómo participar?" por su cuenta).
+    // Las siguientes veces ya no molesta, solo queda el botón para volver a verla.
+    if (!localStorage.getItem('locosx_tutorial_visto')) {
+      modalComoJugar.style.display = 'flex';
+      localStorage.setItem('locosx_tutorial_visto', '1');
+    }
 
     // Cerrar modal si hacen click afuera
     window.addEventListener('click', (event) => {
